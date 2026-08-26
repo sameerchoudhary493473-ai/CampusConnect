@@ -59,7 +59,7 @@ document.addEventListener("DOMContentLoaded", () => {
     setLoading(true, "Checking session...");
     const session = await checkSession();
     if (!session) {
-      window.location.href = "login.html";
+      window.location.replace("login.html");
       return;
     }
 
@@ -107,7 +107,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function setupAuthListener() {
     auth.client.auth.onAuthStateChange(async (_event, session) => {
       if (!session) {
-        window.location.href = "login.html";
+        window.location.replace("login.html");
         return;
       }
       if (session.user?.id !== state.session?.user?.id) {
@@ -161,7 +161,7 @@ document.addEventListener("DOMContentLoaded", () => {
     } else {
       const profile = {
         id: user.id,
-        full_name: auth.getDisplayName(user.user_metadata?.full_name || user.email?.split("@")[0] || "Student"),
+        full_name: auth.getDisplayName(user.user_metadata?.full_name || user.email?.split("@")[0]),
         email: user.email,
       };
       const insertResult = await auth.client.from("profiles").insert(profile).select("id, full_name, email").single();
@@ -172,7 +172,7 @@ document.addEventListener("DOMContentLoaded", () => {
       state.profile = insertResult.data;
     }
 
-    const name = state.profile.full_name || "Student";
+    const name = auth.getDisplayName(state.profile.full_name || state.session.user.user_metadata?.full_name || state.session.user.email?.split("@")[0]);
     if (refs.profileName) refs.profileName.textContent = name;
     if (refs.welcomeMessage) refs.welcomeMessage.textContent = `Welcome back, ${firstName(name)}!`;
     if (refs.userAvatar) refs.userAvatar.textContent = auth.getInitials(name);
@@ -555,7 +555,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function firstName(fullName) {
-    return (fullName || "Student").trim().split(/\s+/)[0] || "Student";
+    return auth.getDisplayName(fullName).trim().split(/\s+/)[0] || "Campus";
   }
 
   function badgeClassForEvent(category) {
@@ -629,7 +629,7 @@ document.addEventListener("DOMContentLoaded", () => {
       await auth.logout();
     } catch (error) {
       console.error("Logout failed:", error);
-      window.location.href = "login.html";
+      window.location.replace("login.html");
     }
   }
 });

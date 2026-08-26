@@ -6,14 +6,14 @@
   const client = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
   function getDisplayName(fullName) {
-    if (!fullName) return "Student";
+    if (!fullName) return "Campus member";
     const trimmed = fullName.trim();
-    return trimmed ? trimmed : "Student";
+    return trimmed || "Campus member";
   }
 
   function getInitials(fullName) {
     const parts = getDisplayName(fullName).split(/\s+/).filter(Boolean);
-    return parts.slice(0, 2).map((part) => part[0].toUpperCase()).join("") || "S";
+    return parts.slice(0, 2).map((part) => part[0].toUpperCase()).join("") || "C";
   }
 
   async function initAuth() {
@@ -117,8 +117,13 @@
             return;
           }
 
+          if (data?.session) {
+            window.location.replace("index.html");
+            return;
+          }
+
           if (data?.user) {
-            setMessage("Account created successfully. Please sign in to continue.", "success");
+            setMessage("Account created. Please verify your email before signing in.", "success");
             mode = "signin";
             syncMode();
             authForm.reset();
@@ -138,7 +143,7 @@
         }
 
         if (data?.session) {
-          window.location.href = "index.html";
+            window.location.replace("index.html");
         }
       } catch (error) {
         console.error("Authentication error:", error);
@@ -157,9 +162,21 @@
     return data?.session || null;
   }
 
+  async function protectDashboard() {
+    const session = await checkSession();
+    if (!session) {
+      window.location.replace("login.html");
+      return null;
+    }
+
+    // Release the protected page only after Supabase confirms an active session.
+    document.body.classList.add("is-authenticated");
+    return session;
+  }
+
   async function logout() {
     await client.auth.signOut();
-    window.location.href = "login.html";
+    window.location.replace("login.html");
   }
 
   function userFriendlyAuthError(error) {
@@ -180,6 +197,7 @@
     client,
     initAuth,
     checkSession,
+    protectDashboard,
     logout,
     getDisplayName,
     getInitials,
@@ -187,10 +205,13 @@
   };
 
   const isLoginPage = document.body.classList.contains("auth-page") || window.location.pathname.endsWith("login.html");
+  const isDashboardPage = document.body.classList.contains("dashboard-page");
   if (isLoginPage) {
     initAuth();
     checkSession().then((session) => {
-      if (session) window.location.href = "index.html";
+      if (session) window.location.replace("index.html");
     });
+  } else if (isDashboardPage) {
+    protectDashboard();
   }
 })();
