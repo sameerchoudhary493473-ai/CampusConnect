@@ -1,123 +1,37 @@
 document.addEventListener("DOMContentLoaded", () => {
-  const EVENT_STORAGE_KEY = "campusconnect_registered_events";
-  const COMPLAINT_STORAGE_KEY = "campusconnect_complaints";
-
-  const events = [
-    {
-      id: "hackathon-2026",
-      title: "Hackathon 2026",
-      category: "Technical",
-      filterCategory: "technical",
-      date: "September 12, 2026",
-      time: "9:00 AM - 9:00 PM",
-      location: "Innovation Lab",
-      description: "Build creative solutions in teams and present them to a panel of faculty mentors and industry judges.",
-      seats: 24,
-    },
-    {
-      id: "annual-sports-meet",
-      title: "Annual Sports Meet",
-      category: "Sports",
-      filterCategory: "sports",
-      date: "September 15, 2026",
-      time: "7:00 AM - 5:00 PM",
-      location: "University Sports Complex",
-      description: "Compete in athletics, relay races, football, basketball, and indoor games across campus teams.",
-      seats: 18,
-    },
-    {
-      id: "tech-fest",
-      title: "Tech Fest",
-      category: "Technical",
-      filterCategory: "technical",
-      date: "September 18, 2026",
-      time: "10:00 AM - 4:00 PM",
-      location: "Main Auditorium",
-      description: "Showcase projects, attend demos, and join talks on robotics, AI, and new-age digital products.",
-      seats: 30,
-    },
-    {
-      id: "coding-workshop",
-      title: "Coding Workshop",
-      category: "Workshop",
-      filterCategory: "workshop",
-      date: "September 20, 2026",
-      time: "2:00 PM - 5:00 PM",
-      location: "Computer Lab 2",
-      description: "Learn practical JavaScript techniques, debugging habits, and problem solving in a hands-on session.",
-      seats: 12,
-    },
-    {
-      id: "cultural-night",
-      title: "Cultural Night",
-      category: "Cultural",
-      filterCategory: "cultural",
-      date: "September 24, 2026",
-      time: "6:30 PM - 10:00 PM",
-      location: "Open Air Theatre",
-      description: "Enjoy student performances, music, dance, poetry, and a vibrant evening celebrating campus life.",
-      seats: 0,
-    },
-    {
-      id: "resume-workshop",
-      title: "Resume Building Workshop",
-      category: "Workshop",
-      filterCategory: "workshop",
-      date: "September 27, 2026",
-      time: "11:00 AM - 1:00 PM",
-      location: "Seminar Hall B",
-      description: "Polish your resume, improve formatting, and learn how to present your skills for internships and placements.",
-      seats: 16,
-    },
-  ];
-
-  const complaintSampleSeed = [
-    {
-      id: "CC-0001",
-      title: "Wi-Fi connectivity issue",
-      category: "Technical",
-      description: "Campus Wi-Fi keeps disconnecting in the lab during evening classes.",
-      priority: "High",
-      location: "Computer Lab 2",
-      status: "In Progress",
-      submittedAt: "August 18, 2026",
-    },
-    {
-      id: "CC-0002",
-      title: "Library seating issue",
-      category: "Library",
-      description: "There are not enough seats available during peak study hours.",
-      priority: "Medium",
-      location: "Central Library",
-      status: "Pending",
-      submittedAt: "August 20, 2026",
-    },
-  ];
+  const auth = window.CampusConnectAuth;
+  if (!auth) {
+    console.error("CampusConnect auth helper is missing.");
+    return;
+  }
 
   const state = {
-    searchTerm: "",
-    activeFilter: "all",
-    registeredIds: loadRegistrations(),
+    session: null,
+    profile: null,
+    events: [],
+    registrations: [],
+    complaints: [],
+    eventSearchTerm: "",
+    eventFilter: "all",
     complaintSearchTerm: "",
     complaintFilter: "all",
-    complaints: loadComplaints(),
     activeComplaintId: null,
   };
 
   const refs = {
-    dateElement: document.getElementById("currentDate"),
-    sidebar: document.getElementById("sidebar"),
-    menuToggle: document.getElementById("menuToggle"),
+    pageLoading: document.getElementById("pageLoading"),
+    welcomeMessage: document.getElementById("welcomeMessage"),
+    profileName: document.getElementById("profileName"),
+    userAvatar: document.getElementById("userAvatar"),
+    currentDate: document.getElementById("currentDate"),
+    logoutBtn: document.getElementById("logoutBtn"),
+    navMenuBtn: document.getElementById("navMenuBtn"),
+    mobileNav: document.getElementById("mobileNav"),
     eventGrid: document.getElementById("eventGrid"),
-    registeredEventsList: document.getElementById("registeredEventsList"),
-    feedbackBar: document.getElementById("feedbackBar"),
     eventSearch: document.getElementById("eventSearch"),
-    upcomingEventsCount: document.getElementById("upcomingEventsCount"),
-    registeredEventsCount: document.getElementById("registeredEventsCount"),
-    complaintsCount: document.getElementById("pendingComplaintsCount"),
-    totalComplaintsCount: document.getElementById("totalComplaintsCount"),
-    filterButtons: Array.from(document.querySelectorAll(".filter-pill[data-filter]")),
-    complaintSearch: document.getElementById("complaintSearch"),
+    eventFilterButtons: Array.from(document.querySelectorAll("[data-filter]")),
+    registeredEventsList: document.getElementById("registeredEventsList"),
+    complaintsList: document.getElementById("complaintsList"),
     complaintForm: document.getElementById("complaintForm"),
     complaintTitle: document.getElementById("complaintTitle"),
     complaintCategory: document.getElementById("complaintCategory"),
@@ -128,288 +42,524 @@ document.addEventListener("DOMContentLoaded", () => {
     categoryError: document.getElementById("categoryError"),
     descriptionError: document.getElementById("descriptionError"),
     locationError: document.getElementById("locationError"),
-    complaintsList: document.getElementById("complaintsList"),
+    complaintSearch: document.getElementById("complaintSearch"),
+    complaintFilterButtons: Array.from(document.querySelectorAll("[data-complaint-filter]")),
     complaintModal: document.getElementById("complaintModal"),
     complaintModalContent: document.getElementById("complaintModalContent"),
-    complaintStatusFilters: Array.from(document.querySelectorAll("[data-complaint-filter]")),
+    feedbackBar: document.getElementById("feedbackBar"),
+    upcomingEventsCount: document.getElementById("upcomingEventsCount"),
+    registeredEventsCount: document.getElementById("registeredEventsCount"),
+    pendingComplaintsCount: document.getElementById("pendingComplaintsCount"),
+    totalComplaintsCount: document.getElementById("totalComplaintsCount"),
   };
 
-  if (refs.dateElement) {
-    refs.dateElement.textContent = new Intl.DateTimeFormat("en-US", {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    }).format(new Date());
+  initApp();
+
+  async function initApp() {
+    setLoading(true, "Checking session...");
+    const session = await checkSession();
+    if (!session) {
+      window.location.href = "login.html";
+      return;
+    }
+
+    state.session = session;
+    setupAuthListener();
+    bindUi();
+    await loadAllData();
+    setLoading(false);
   }
 
-  if (refs.menuToggle && refs.sidebar) {
-    refs.menuToggle.addEventListener("click", () => {
-      const isOpen = refs.sidebar.classList.toggle("is-open");
-      refs.menuToggle.setAttribute("aria-expanded", String(isOpen));
+  function bindUi() {
+    refs.logoutBtn?.addEventListener("click", logout);
+    refs.navMenuBtn?.addEventListener("click", toggleMobileNav);
+    refs.eventSearch?.addEventListener("input", (e) => {
+      state.eventSearchTerm = e.target.value.trim().toLowerCase();
+      renderEvents();
+    });
+    refs.eventFilterButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        state.eventFilter = button.dataset.filter || "all";
+        refs.eventFilterButtons.forEach((item) => item.classList.toggle("is-active", item === button));
+        renderEvents();
+      });
+    });
+    refs.complaintSearch?.addEventListener("input", (e) => {
+      state.complaintSearchTerm = e.target.value.trim().toLowerCase();
+      renderComplaints();
+    });
+    refs.complaintFilterButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        state.complaintFilter = button.dataset.complaintFilter || "all";
+        refs.complaintFilterButtons.forEach((item) => item.classList.toggle("is-active", item === button));
+        renderComplaints();
+      });
+    });
+    refs.complaintForm?.addEventListener("submit", submitComplaint);
+    refs.complaintModal?.addEventListener("click", (event) => {
+      if (event.target.matches("[data-modal-close]")) closeComplaintModal();
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && refs.complaintModal?.classList.contains("is-open")) closeComplaintModal();
     });
   }
 
-  document.querySelectorAll(".sidebar-nav__link").forEach((link) => {
-    link.addEventListener("click", () => {
-      if (window.innerWidth <= 900 && refs.sidebar) {
-        refs.sidebar.classList.remove("is-open");
-        refs.menuToggle?.setAttribute("aria-expanded", "false");
+  function setupAuthListener() {
+    auth.client.auth.onAuthStateChange(async (_event, session) => {
+      if (!session) {
+        window.location.href = "login.html";
+        return;
+      }
+      if (session.user?.id !== state.session?.user?.id) {
+        state.session = session;
+        await loadAllData();
       }
     });
-  });
-
-  if (refs.eventSearch) {
-    refs.eventSearch.addEventListener("input", (event) => {
-      state.searchTerm = event.target.value.trim().toLowerCase();
-      renderEvents();
-    });
   }
 
-  refs.filterButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-      state.activeFilter = button.dataset.filter || "all";
-      refs.filterButtons.forEach((pill) => pill.classList.toggle("is-active", pill === button));
-      renderEvents();
-    });
-  });
-
-  if (refs.complaintSearch) {
-    refs.complaintSearch.addEventListener("input", (event) => {
-      state.complaintSearchTerm = event.target.value.trim().toLowerCase();
-      renderComplaints();
-    });
-  }
-
-  refs.complaintStatusFilters.forEach((button) => {
-    button.addEventListener("click", () => {
-      state.complaintFilter = button.dataset.complaintFilter || "all";
-      refs.complaintStatusFilters.forEach((pill) => pill.classList.toggle("is-active", pill === button));
-      renderComplaints();
-    });
-  });
-
-  refs.complaintForm?.addEventListener("submit", submitComplaint);
-
-  refs.complaintModal?.addEventListener("click", (event) => {
-    if (event.target.matches("[data-modal-close]")) {
-      closeComplaintModal();
-    }
-  });
-
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && refs.complaintModal?.classList.contains("is-open")) {
-      closeComplaintModal();
-    }
-  });
-
-  window.registerEvent = registerEvent;
-  window.unregisterEvent = unregisterEvent;
-  window.filterEvents = filterEvents;
-  window.searchEvents = searchEvents;
-  window.renderEvents = renderEvents;
-  window.updateDashboardStats = updateDashboardStats;
-  window.loadComplaints = loadComplaints;
-  window.saveComplaints = saveComplaints;
-  window.submitComplaint = submitComplaint;
-  window.renderComplaints = renderComplaints;
-  window.filterComplaints = filterComplaints;
-  window.searchComplaints = searchComplaints;
-  window.viewComplaint = viewComplaint;
-  window.deleteComplaint = deleteComplaint;
-  window.updateComplaintStats = updateComplaintStats;
-
-  seedComplaintsIfNeeded();
-  renderEvents();
-  renderComplaints();
-
-  function loadRegistrations() {
+  async function checkSession() {
     try {
-      const parsed = JSON.parse(localStorage.getItem(EVENT_STORAGE_KEY) || "[]");
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
+      return await auth.checkSession();
+    } catch (error) {
+      console.error("Session check failed:", error);
+      return null;
     }
   }
 
-  function saveRegistrations() {
-    localStorage.setItem(EVENT_STORAGE_KEY, JSON.stringify(state.registeredIds));
-  }
-
-  function loadComplaints() {
+  async function loadAllData() {
     try {
-      const parsed = JSON.parse(localStorage.getItem(COMPLAINT_STORAGE_KEY) || "[]");
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
+      setLoading(true, "Loading profile...");
+      await loadProfile();
+      setLoading(true, "Loading events...");
+      await Promise.all([loadEvents(), loadRegisteredEvents(), loadComplaints()]);
+      updateDashboardStats();
+      renderEvents();
+      renderComplaints();
+    } catch (error) {
+      console.error("Dashboard load error:", error);
+      showToast("We could not load your dashboard right now.", "danger");
+    } finally {
+      setLoading(false);
     }
   }
 
-  function saveComplaints() {
-    localStorage.setItem(COMPLAINT_STORAGE_KEY, JSON.stringify(state.complaints));
-  }
+  async function loadProfile() {
+    const user = state.session.user;
+    const { data, error } = await auth.client
+      .from("profiles")
+      .select("id, full_name, email")
+      .eq("id", user.id)
+      .maybeSingle();
 
-  function seedComplaintsIfNeeded() {
-    if (state.complaints.length === 0) {
-      state.complaints = complaintSampleSeed.slice();
-      saveComplaints();
+    if (error) {
+      console.error("Profile load error:", error);
+      throw error;
     }
-  }
 
-  function getEventById(eventId) {
-    return events.find((item) => item.id === eventId);
-  }
-
-  function getVisibleEvents() {
-    return events.filter((event) => filterEvents(event) && searchEvents(event));
-  }
-
-  function filterEvents(event) {
-    if (state.activeFilter === "all") {
-      return true;
+    if (data) {
+      state.profile = data;
+    } else {
+      const profile = {
+        id: user.id,
+        full_name: auth.getDisplayName(user.user_metadata?.full_name || user.email?.split("@")[0] || "Student"),
+        email: user.email,
+      };
+      const insertResult = await auth.client.from("profiles").insert(profile).select("id, full_name, email").single();
+      if (insertResult.error) {
+        console.error("Profile insert error:", insertResult.error);
+        throw insertResult.error;
+      }
+      state.profile = insertResult.data;
     }
-    return event.filterCategory === state.activeFilter;
+
+    const name = state.profile.full_name || "Student";
+    if (refs.profileName) refs.profileName.textContent = name;
+    if (refs.welcomeMessage) refs.welcomeMessage.textContent = `Welcome back, ${firstName(name)}!`;
+    if (refs.userAvatar) refs.userAvatar.textContent = auth.getInitials(name);
   }
 
-  function searchEvents(event) {
-    if (!state.searchTerm) {
-      return true;
-    }
-    return (
-      event.title.toLowerCase().includes(state.searchTerm) ||
-      event.category.toLowerCase().includes(state.searchTerm)
-    );
+  async function loadEvents() {
+    const { data, error } = await auth.client
+      .from("events")
+      .select("id, title, category, description, event_date, event_time, location, total_seats, created_at")
+      .order("event_date", { ascending: true });
+    if (error) throw error;
+    state.events = data || [];
+  }
+
+  async function loadRegisteredEvents() {
+    const { data, error } = await auth.client
+      .from("event_registrations")
+      .select("id, user_id, event_id, registered_at, events(id, title, category, description, event_date, event_time, location, total_seats)")
+      .eq("user_id", state.session.user.id);
+    if (error) throw error;
+    state.registrations = data || [];
+  }
+
+  async function loadComplaints() {
+    const { data, error } = await auth.client
+      .from("complaints")
+      .select("id, user_id, title, category, description, priority, location, status, created_at")
+      .eq("user_id", state.session.user.id)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    state.complaints = data || [];
   }
 
   function renderEvents() {
-    if (!refs.eventGrid || !refs.registeredEventsList) {
-      return;
-    }
+    if (!refs.eventGrid || !refs.registeredEventsList) return;
 
-    const visibleEvents = getVisibleEvents();
-
-    refs.eventGrid.innerHTML = visibleEvents.length
-      ? visibleEvents
-          .map((event) => {
-            const isRegistered = state.registeredIds.includes(event.id);
-            const seatsLeft = getSeatsLeft(event);
-            const isFull = seatsLeft <= 0;
-            const statusText = isFull ? "Fully Booked" : `${seatsLeft} seats left`;
-            const statusClass = isFull ? "event-card__status--booked" : "event-card__status--open";
-            const buttonLabel = isFull ? "Fully Booked" : isRegistered ? "Registered" : "Register";
-
-            return `
-              <article class="event-card">
-                <div class="event-card__badge ${badgeClassForCategory(event.filterCategory)}">${event.category}</div>
-                <h3>${event.title}</h3>
-                <p class="event-card__detail"><strong>Date:</strong> ${event.date}</p>
-                <p class="event-card__detail"><strong>Time:</strong> ${event.time}</p>
-                <p class="event-card__detail"><strong>Location:</strong> ${event.location}</p>
-                <p class="event-card__description">${event.description}</p>
-                <div class="event-card__footer">
-                  <span class="event-card__status ${statusClass}">${statusText}</span>
-                  <button
-                    class="btn ${isRegistered ? "btn--secondary" : "btn--primary"}"
-                    type="button"
-                    data-event-id="${event.id}"
-                    ${isRegistered || isFull ? "disabled" : ""}
-                  >${buttonLabel}</button>
-                </div>
-              </article>
-            `;
-          })
-          .join("")
-      : `<article class="announcement-item"><p class="announcement-item__title">No matching events found</p><p class="announcement-item__text">Try a different search term or filter.</p></article>`;
-
-    const registeredEvents = events.filter((event) => state.registeredIds.includes(event.id));
-    refs.registeredEventsList.innerHTML = registeredEvents.length
-      ? registeredEvents
-          .map(
-            (event) => `
-              <article class="registered-item">
-                <div class="registered-item__top">
-                  <div>
-                    <span class="event-card__badge ${badgeClassForCategory(event.filterCategory)}">${event.category}</span>
-                    <h3 class="registered-item__title">${event.title}</h3>
-                    <p class="registered-item__meta">${event.date} | ${event.time}</p>
-                    <p class="registered-item__meta">${event.location}</p>
-                  </div>
-                  <span class="event-card__status event-card__status--open">Registered</span>
-                </div>
-                <div class="registered-item__actions">
-                  <button class="btn btn--ghost" type="button" data-unregister-id="${event.id}">Unregister</button>
-                </div>
-              </article>
-            `
-          )
-          .join("")
-      : `<article class="announcement-item"><p class="announcement-item__title">No registrations yet</p><p class="announcement-item__text">Register for an event to see it listed here.</p></article>`;
-
-    refs.eventGrid.querySelectorAll("[data-event-id]").forEach((button) => {
-      button.addEventListener("click", () => registerEvent(button.dataset.eventId));
+    const visible = state.events.filter((event) => {
+      const matchesFilter = state.eventFilter === "all" || event.category.toLowerCase() === state.eventFilter;
+      const term = state.eventSearchTerm;
+      const matchesSearch = !term || event.title.toLowerCase().includes(term) || event.category.toLowerCase().includes(term);
+      return matchesFilter && matchesSearch;
     });
 
-    refs.registeredEventsList.querySelectorAll("[data-unregister-id]").forEach((button) => {
-      button.addEventListener("click", () => unregisterEvent(button.dataset.unregisterId));
+    refs.eventGrid.innerHTML = visible.length
+      ? visible.map((event) => {
+          const registered = state.registrations.some((item) => item.event_id === event.id);
+          const seatsLeft = getSeatsLeft(event.id, event.total_seats);
+          const full = seatsLeft <= 0;
+          return `
+            <article class="event-card">
+              <div class="event-card__badge ${badgeClassForEvent(event.category)}">${event.category}</div>
+              <h3>${escapeHtml(event.title)}</h3>
+              <p class="event-card__detail"><strong>Date:</strong> ${formatDate(event.event_date)}</p>
+              <p class="event-card__detail"><strong>Time:</strong> ${event.event_time || "TBA"}</p>
+              <p class="event-card__detail"><strong>Location:</strong> ${event.location || "Campus"}</p>
+              <p class="event-card__description">${escapeHtml(event.description || "")}</p>
+              <div class="event-card__footer">
+                <span class="event-card__status ${full ? "event-card__status--booked" : "event-card__status--open"}">${full ? "Fully Booked" : `${seatsLeft} seats left`}</span>
+                <button class="btn ${registered ? "btn--secondary" : "btn--primary"}" type="button" data-register-event="${event.id}" ${registered || full ? "disabled" : ""}>
+                  ${registered ? "Registered" : full ? "Fully Booked" : "Register"}
+                </button>
+              </div>
+            </article>
+          `;
+        }).join("")
+      : `<div class="empty-state">No events found.</div>`;
+
+    refs.registeredEventsList.innerHTML = state.registrations.length
+      ? state.registrations.map((row) => {
+          const event = row.events;
+          return `
+            <article class="registered-item">
+              <div class="registered-item__top">
+                <div>
+                  <span class="event-card__badge ${badgeClassForEvent(event.category)}">${event.category}</span>
+                  <h3 class="registered-item__title">${escapeHtml(event.title)}</h3>
+                  <p class="registered-item__meta">${formatDate(event.event_date)} | ${event.event_time || "TBA"}</p>
+                  <p class="registered-item__meta">${event.location || "Campus"}</p>
+                </div>
+                <span class="event-card__status event-card__status--open">Registered</span>
+              </div>
+              <div class="registered-item__actions">
+                <button class="btn btn--ghost" type="button" data-unregister-event="${row.event_id}">Unregister</button>
+              </div>
+            </article>
+          `;
+        }).join("")
+      : `<div class="empty-state">No registered events yet.</div>`;
+
+    refs.eventGrid.querySelectorAll("[data-register-event]").forEach((button) => {
+      button.addEventListener("click", () => registerEvent(button.dataset.registerEvent));
     });
-
-    updateDashboardStats();
+    refs.registeredEventsList.querySelectorAll("[data-unregister-event]").forEach((button) => {
+      button.addEventListener("click", () => unregisterEvent(button.dataset.unregisterEvent));
+    });
   }
 
-  function registerEvent(eventId) {
-    const event = getEventById(eventId);
-    if (!event) return;
+  async function registerEvent(eventId) {
+    try {
+      setLoading(true, "Registering for event...");
+      const exists = state.registrations.some((item) => item.event_id === eventId);
+      if (exists) {
+        showToast("You are already registered for this event.", "warning");
+        return;
+      }
 
-    if (state.registeredIds.includes(eventId)) {
-      showFeedback("You are already registered for this event.", "warning");
+      const event = state.events.find((item) => item.id === eventId);
+      if (!event) {
+        showToast("Event not found.", "danger");
+        return;
+      }
+
+      const seatsLeft = getSeatsLeft(event.id, event.total_seats);
+      if (seatsLeft <= 0) {
+        showToast("This event is fully booked.", "danger");
+        renderEvents();
+        return;
+      }
+
+      const { error } = await auth.client.from("event_registrations").insert({
+        user_id: state.session.user.id,
+        event_id: eventId,
+      });
+      if (error) throw error;
+
+      showToast("Registered successfully.", "success");
+      await loadRegisteredEvents();
+      updateDashboardStats();
       renderEvents();
-      return;
+    } catch (error) {
+      console.error("Event registration error:", error);
+      showToast("Event registration failed. Please try again.", "danger");
+    } finally {
+      setLoading(false);
     }
-
-    if (getSeatsLeft(event) <= 0) {
-      showFeedback("This event is fully booked.", "danger");
-      renderEvents();
-      return;
-    }
-
-    state.registeredIds.push(eventId);
-    saveRegistrations();
-    showFeedback(`Registered for ${event.title} successfully.`, "success");
-    renderEvents();
   }
 
-  function unregisterEvent(eventId) {
-    const event = getEventById(eventId);
-    if (!event) return;
-
-    const index = state.registeredIds.indexOf(eventId);
-    if (index === -1) {
-      showFeedback("This event is not currently registered.", "warning");
-      return;
+  async function unregisterEvent(eventId) {
+    try {
+      setLoading(true, "Removing registration...");
+      const { error } = await auth.client
+        .from("event_registrations")
+        .delete()
+        .eq("user_id", state.session.user.id)
+        .eq("event_id", eventId);
+      if (error) throw error;
+      showToast("Registration removed.", "success");
+      await loadRegisteredEvents();
+      updateDashboardStats();
+      renderEvents();
+    } catch (error) {
+      console.error("Unregister error:", error);
+      showToast("Could not remove registration.", "danger");
+    } finally {
+      setLoading(false);
     }
+  }
 
-    state.registeredIds.splice(index, 1);
-    saveRegistrations();
-    showFeedback(`Unregistered from ${event.title}.`, "success");
-    renderEvents();
+  function getSeatsLeft(eventId, totalSeats) {
+    const count = state.registrations.filter((item) => item.event_id === eventId).length;
+    return Math.max(0, totalSeats - count);
   }
 
   function updateDashboardStats() {
-    if (refs.upcomingEventsCount) {
-      refs.upcomingEventsCount.textContent = String(events.length).padStart(2, "0");
-    }
-    if (refs.registeredEventsCount) {
-      refs.registeredEventsCount.textContent = String(state.registeredIds.length).padStart(2, "0");
+    if (refs.upcomingEventsCount) refs.upcomingEventsCount.textContent = String(state.events.length).padStart(2, "0");
+    if (refs.registeredEventsCount) refs.registeredEventsCount.textContent = String(state.registrations.length).padStart(2, "0");
+    if (refs.totalComplaintsCount) refs.totalComplaintsCount.textContent = String(state.complaints.length).padStart(2, "0");
+    if (refs.pendingComplaintsCount) {
+      const pending = state.complaints.filter((item) => item.status === "Pending").length;
+      refs.pendingComplaintsCount.textContent = String(pending).padStart(2, "0");
     }
   }
 
-  function getSeatsLeft(event) {
-    const takenSeats = state.registeredIds.filter((id) => id === event.id).length;
-    return Math.max(0, event.seats - takenSeats);
+  async function submitComplaint(event) {
+    event.preventDefault();
+    clearComplaintErrors();
+
+    const title = refs.complaintTitle.value.trim();
+    const category = refs.complaintCategory.value;
+    const description = refs.complaintDescription.value.trim();
+    const priority = refs.complaintPriority.value;
+    const location = refs.complaintLocation.value.trim();
+    let valid = true;
+
+    if (!title) {
+      setFieldError(refs.titleError, "Title is required.");
+      valid = false;
+    }
+    if (!category) {
+      setFieldError(refs.categoryError, "Category is required.");
+      valid = false;
+    }
+    if (!description) {
+      setFieldError(refs.descriptionError, "Description is required.");
+      valid = false;
+    }
+    if (!location) {
+      setFieldError(refs.locationError, "Location is required.");
+      valid = false;
+    }
+    if (!valid) {
+      showToast("Please complete all complaint fields.", "warning");
+      return;
+    }
+
+    try {
+      setLoading(true, "Submitting complaint...");
+      const { error } = await auth.client.from("complaints").insert({
+        user_id: state.session.user.id,
+        title,
+        category,
+        description,
+        priority,
+        location,
+        status: "Pending",
+      });
+      if (error) throw error;
+      refs.complaintForm.reset();
+      refs.complaintPriority.value = "Medium";
+      showToast("Complaint submitted successfully.", "success");
+      await loadComplaints();
+      updateDashboardStats();
+      renderComplaints();
+    } catch (error) {
+      console.error("Complaint submission error:", error);
+      showToast("Complaint submission failed. Please try again.", "danger");
+    } finally {
+      setLoading(false);
+    }
   }
 
-  function badgeClassForCategory(category) {
-    switch (category) {
+  function renderComplaints() {
+    if (!refs.complaintsList) return;
+    const visible = state.complaints.filter((complaint) => {
+      const matchesFilter = state.complaintFilter === "all" || complaint.status === state.complaintFilter;
+      const term = state.complaintSearchTerm;
+      const matchesSearch =
+        !term ||
+        complaint.title.toLowerCase().includes(term) ||
+        complaint.id.toLowerCase().includes(term) ||
+        complaint.category.toLowerCase().includes(term);
+      return matchesFilter && matchesSearch;
+    });
+
+    refs.complaintsList.innerHTML = visible.length
+      ? visible.map((complaint) => `
+          <article class="complaint-card">
+            <div class="complaint-card__top">
+              <div>
+                <span class="event-card__badge ${badgeClassForComplaint(complaint.category)}">${complaint.category}</span>
+                <h3 class="complaint-card__title">${escapeHtml(complaint.title)}</h3>
+                <p class="complaint-card__meta"><strong>ID:</strong> ${complaint.id}</p>
+                <p class="complaint-card__meta"><strong>Location:</strong> ${escapeHtml(complaint.location)}</p>
+              </div>
+              <span class="status-badge ${badgeClassForStatus(complaint.status)}">${complaint.status}</span>
+            </div>
+            <p class="complaint-card__meta"><strong>Description:</strong> ${escapeHtml(complaint.description)}</p>
+            <p class="complaint-card__meta"><strong>Priority:</strong> ${complaint.priority}</p>
+            <p class="complaint-card__meta"><strong>Date Submitted:</strong> ${formatDateTime(complaint.created_at)}</p>
+            <div class="complaint-card__actions">
+              <button class="btn btn--secondary" type="button" data-view-complaint="${complaint.id}">View Details</button>
+              <button class="btn btn--ghost" type="button" data-delete-complaint="${complaint.id}">Delete Complaint</button>
+            </div>
+          </article>
+        `).join("")
+      : `<div class="empty-state">No complaints found.</div>`;
+
+    refs.complaintsList.querySelectorAll("[data-view-complaint]").forEach((button) => {
+      button.addEventListener("click", () => viewComplaint(button.dataset.viewComplaint));
+    });
+    refs.complaintsList.querySelectorAll("[data-delete-complaint]").forEach((button) => {
+      button.addEventListener("click", () => deleteComplaint(button.dataset.deleteComplaint));
+    });
+  }
+
+  async function deleteComplaint(complaintId) {
+    const complaint = state.complaints.find((item) => item.id === complaintId);
+    if (!complaint) return;
+    if (!window.confirm(`Delete complaint ${complaint.id}?`)) return;
+
+    try {
+      setLoading(true, "Deleting complaint...");
+      const { error } = await auth.client
+        .from("complaints")
+        .delete()
+        .eq("id", complaintId)
+        .eq("user_id", state.session.user.id);
+      if (error) throw error;
+      showToast("Complaint deleted successfully.", "success");
+      await loadComplaints();
+      updateDashboardStats();
+      renderComplaints();
+      if (state.activeComplaintId === complaintId) closeComplaintModal();
+    } catch (error) {
+      console.error("Delete complaint error:", error);
+      showToast("Could not delete complaint.", "danger");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function viewComplaint(complaintId) {
+    const complaint = state.complaints.find((item) => item.id === complaintId);
+    if (!complaint || !refs.complaintModal || !refs.complaintModalContent) return;
+    state.activeComplaintId = complaintId;
+    refs.complaintModalContent.innerHTML = `
+      <div class="modal__row"><strong>ID:</strong> ${complaint.id}</div>
+      <div class="modal__row"><strong>Title:</strong> ${escapeHtml(complaint.title)}</div>
+      <div class="modal__row"><strong>Category:</strong> ${complaint.category}</div>
+      <div class="modal__row"><strong>Description:</strong> ${escapeHtml(complaint.description)}</div>
+      <div class="modal__row"><strong>Location:</strong> ${escapeHtml(complaint.location)}</div>
+      <div class="modal__row"><strong>Priority:</strong> ${complaint.priority}</div>
+      <div class="modal__row"><strong>Date Submitted:</strong> ${formatDateTime(complaint.created_at)}</div>
+      <div class="modal__row"><strong>Status:</strong> ${complaint.status}</div>
+    `;
+    refs.complaintModal.classList.add("is-open");
+    refs.complaintModal.setAttribute("aria-hidden", "false");
+  }
+
+  function closeComplaintModal() {
+    refs.complaintModal?.classList.remove("is-open");
+    refs.complaintModal?.setAttribute("aria-hidden", "true");
+    state.activeComplaintId = null;
+  }
+
+  function updateDashboardLoading(show) {
+    if (refs.pageLoading) refs.pageLoading.hidden = !show;
+  }
+
+  function setLoading(show, text) {
+    updateDashboardLoading(show);
+    if (refs.pageLoading && text) refs.pageLoading.textContent = text;
+  }
+
+  function toggleMobileNav() {
+    const isOpen = !refs.mobileNav.hasAttribute("hidden");
+    if (isOpen) {
+      refs.mobileNav.setAttribute("hidden", "");
+      refs.navMenuBtn?.setAttribute("aria-expanded", "false");
+    } else {
+      refs.mobileNav.removeAttribute("hidden");
+      refs.navMenuBtn?.setAttribute("aria-expanded", "true");
+    }
+  }
+
+  function setFieldError(element, message) {
+    if (element) element.textContent = message;
+  }
+
+  function clearComplaintErrors() {
+    [refs.titleError, refs.categoryError, refs.descriptionError, refs.locationError].forEach((el) => {
+      if (el) el.textContent = "";
+    });
+  }
+
+  function formatDate(value) {
+    try {
+      return new Intl.DateTimeFormat("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      }).format(new Date(value));
+    } catch {
+      return value || "";
+    }
+  }
+
+  function formatDateTime(value) {
+    try {
+      return new Intl.DateTimeFormat("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      }).format(new Date(value));
+    } catch {
+      return value || "";
+    }
+  }
+
+  function firstName(fullName) {
+    return (fullName || "Student").trim().split(/\s+/)[0] || "Student";
+  }
+
+  function badgeClassForEvent(category) {
+    switch ((category || "").toLowerCase()) {
       case "technical":
         return "event-card__badge--blue";
       case "sports":
@@ -423,189 +573,22 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function submitComplaint(event) {
-    event.preventDefault();
-    clearComplaintErrors();
-
-    const title = refs.complaintTitle?.value.trim() || "";
-    const category = refs.complaintCategory?.value || "";
-    const description = refs.complaintDescription?.value.trim() || "";
-    const priority = refs.complaintPriority?.value || "Medium";
-    const location = refs.complaintLocation?.value.trim() || "";
-    let isValid = true;
-
-    if (!title) {
-      setFieldError(refs.titleError, "Title is required.");
-      isValid = false;
-    }
-    if (!category) {
-      setFieldError(refs.categoryError, "Please select a category.");
-      isValid = false;
-    }
-    if (!description) {
-      setFieldError(refs.descriptionError, "Description is required.");
-      isValid = false;
-    }
-    if (!location) {
-      setFieldError(refs.locationError, "Location is required.");
-      isValid = false;
-    }
-
-    if (!isValid) {
-      showFeedback("Please complete the required complaint fields.", "warning");
-      return;
-    }
-
-    const complaint = {
-      id: generateComplaintId(),
-      title,
-      category,
-      description,
-      priority,
-      location,
-      status: "Pending",
-      submittedAt: new Intl.DateTimeFormat("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      }).format(new Date()),
-    };
-
-    state.complaints.unshift(complaint);
-    saveComplaints();
-    refs.complaintForm?.reset();
-    if (refs.complaintPriority) {
-      refs.complaintPriority.value = "Medium";
-    }
-    showFeedback("Complaint submitted successfully.", "success");
-    renderComplaints();
-  }
-
-  function renderComplaints() {
-    if (!refs.complaintsList) return;
-
-    const visibleComplaints = state.complaints.filter((complaint) => filterComplaints(complaint) && searchComplaints(complaint));
-
-    refs.complaintsList.innerHTML = visibleComplaints.length
-      ? visibleComplaints.map((complaint) => complaintCardMarkup(complaint)).join("")
-      : `<div class="empty-state">No complaints found.</div>`;
-
-    refs.complaintsList.querySelectorAll("[data-view-id]").forEach((button) => {
-      button.addEventListener("click", () => viewComplaint(button.dataset.viewId));
-    });
-    refs.complaintsList.querySelectorAll("[data-delete-id]").forEach((button) => {
-      button.addEventListener("click", () => deleteComplaint(button.dataset.deleteId));
-    });
-
-    updateComplaintStats();
-  }
-
-  function filterComplaints(complaint) {
-    if (state.complaintFilter === "all") return true;
-    return complaint.status === state.complaintFilter;
-  }
-
-  function searchComplaints(complaint) {
-    if (!state.complaintSearchTerm) return true;
-    const term = state.complaintSearchTerm;
-    return (
-      complaint.title.toLowerCase().includes(term) ||
-      complaint.id.toLowerCase().includes(term) ||
-      complaint.category.toLowerCase().includes(term)
-    );
-  }
-
-  function viewComplaint(complaintId) {
-    const complaint = state.complaints.find((item) => item.id === complaintId);
-    if (!complaint || !refs.complaintModal || !refs.complaintModalContent) return;
-
-    state.activeComplaintId = complaintId;
-    refs.complaintModalContent.innerHTML = `
-      <div class="modal__row"><strong>ID:</strong> ${complaint.id}</div>
-      <div class="modal__row"><strong>Title:</strong> ${complaint.title}</div>
-      <div class="modal__row"><strong>Category:</strong> ${complaint.category}</div>
-      <div class="modal__row"><strong>Description:</strong> ${complaint.description}</div>
-      <div class="modal__row"><strong>Location:</strong> ${complaint.location}</div>
-      <div class="modal__row"><strong>Priority:</strong> ${complaint.priority}</div>
-      <div class="modal__row"><strong>Date Submitted:</strong> ${complaint.submittedAt}</div>
-      <div class="modal__row"><strong>Status:</strong> ${complaint.status}</div>
-    `;
-    refs.complaintModal.classList.add("is-open");
-    refs.complaintModal.setAttribute("aria-hidden", "false");
-  }
-
-  function closeComplaintModal() {
-    if (!refs.complaintModal) return;
-    refs.complaintModal.classList.remove("is-open");
-    refs.complaintModal.setAttribute("aria-hidden", "true");
-    state.activeComplaintId = null;
-  }
-
-  function deleteComplaint(complaintId) {
-    const complaint = state.complaints.find((item) => item.id === complaintId);
-    if (!complaint) return;
-
-    const confirmed = window.confirm(`Delete complaint ${complaint.id}?`);
-    if (!confirmed) return;
-
-    state.complaints = state.complaints.filter((item) => item.id !== complaintId);
-    saveComplaints();
-    if (state.activeComplaintId === complaintId) {
-      closeComplaintModal();
-    }
-    showFeedback("Complaint deleted successfully.", "success");
-    renderComplaints();
-  }
-
-  function updateComplaintStats() {
-    if (refs.totalComplaintsCount) {
-      refs.totalComplaintsCount.textContent = String(state.complaints.length).padStart(2, "0");
-    }
-    if (refs.complaintsCount) {
-      const pendingCount = state.complaints.filter((complaint) => complaint.status === "Pending").length;
-      refs.complaintsCount.textContent = String(pendingCount).padStart(2, "0");
-    }
-  }
-
-  function complaintCardMarkup(complaint) {
-    return `
-      <article class="complaint-card">
-        <div class="complaint-card__top">
-          <div>
-            <span class="event-card__badge ${badgeClassForComplaintCategory(complaint.category)}">${complaint.category}</span>
-            <h3 class="complaint-card__title">${complaint.title}</h3>
-            <p class="complaint-card__meta"><strong>ID:</strong> ${complaint.id}</p>
-            <p class="complaint-card__meta"><strong>Location:</strong> ${complaint.location}</p>
-          </div>
-          <span class="status-badge ${badgeClassForStatus(complaint.status)}">${complaint.status}</span>
-        </div>
-        <p class="complaint-card__meta"><strong>Description:</strong> ${complaint.description}</p>
-        <p class="complaint-card__meta"><strong>Priority:</strong> ${complaint.priority}</p>
-        <p class="complaint-card__meta"><strong>Date Submitted:</strong> ${complaint.submittedAt}</p>
-        <div class="complaint-card__actions">
-          <button class="btn btn--secondary" type="button" data-view-id="${complaint.id}">View Details</button>
-          <button class="btn btn--ghost" type="button" data-delete-id="${complaint.id}">Delete Complaint</button>
-        </div>
-      </article>
-    `;
-  }
-
-  function badgeClassForComplaintCategory(category) {
-    switch (category) {
-      case "Technical":
+  function badgeClassForComplaint(category) {
+    switch ((category || "").toLowerCase()) {
+      case "technical":
         return "event-card__badge--blue";
-      case "Library":
+      case "library":
         return "event-card__badge--amber";
-      case "Hostel":
+      case "hostel":
         return "event-card__badge--green";
-      case "Transport":
+      case "transport":
         return "event-card__badge--teal";
-      case "Cafeteria":
+      case "cafeteria":
         return "event-card__badge--pink";
-      case "Academic":
+      case "academic":
         return "event-card__badge--red";
       default:
-        return "";
+        return "event-card__badge--blue";
     }
   }
 
@@ -620,31 +603,20 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function setFieldError(element, message) {
-    if (element) element.textContent = message;
+  function escapeHtml(value) {
+    return String(value || "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;");
   }
 
-  function clearComplaintErrors() {
-    [refs.titleError, refs.categoryError, refs.descriptionError, refs.locationError].forEach((item) => {
-      if (item) item.textContent = "";
-    });
-  }
-
-  function generateComplaintId() {
-    const suffix = String(Date.now()).slice(-6);
-    return `CC-${suffix}`;
-  }
-
-  function showFeedback(message, type) {
+  function showToast(message, type = "success") {
     if (!refs.feedbackBar) return;
-
     const note = document.createElement("div");
     note.className = `feedback-message feedback-message--${type}`;
     note.textContent = message;
     refs.feedbackBar.appendChild(note);
-
-    window.setTimeout(() => {
-      note.remove();
-    }, 2600);
+    window.setTimeout(() => note.remove(), 3000);
   }
 });
