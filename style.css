@@ -33,8 +33,19 @@ body {
     radial-gradient(circle at top left, rgba(31, 94, 255, 0.12), transparent 32%),
     linear-gradient(180deg, #f8fbff 0%, var(--bg) 100%);
 }
-/* Keep protected dashboard content out of view until Supabase confirms a session. */
-body.dashboard-page:not(.is-authenticated) { visibility: hidden; }
+/* Keep protected dashboard content out of view while the local session is checked. */
+body.dashboard-page:not(.is-authenticated) .app-shell { visibility: hidden; }
+body.dashboard-page:not(.is-authenticated)::before {
+  content: "Checking your session...";
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  color: var(--text);
+  background: var(--bg);
+  font-weight: 700;
+}
 a { color: inherit; text-decoration: none; }
 button, input, select, textarea { font: inherit; }
 
@@ -166,6 +177,16 @@ button, input, select, textarea { font: inherit; }
 .profile-pill__name {
   margin: 0.15rem 0 0;
   font-weight: 800;
+}
+
+.profile-pill__email {
+  margin: 0.15rem 0 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .nav-shelf {

@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CampusConnect | Sign In</title>
   <link rel="stylesheet" href="login.css" />
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body class="auth-page">
   <main class="auth-shell">
@@ -20,7 +19,7 @@
       <div class="auth-copy">
         <p class="eyebrow">Connected campus life</p>
         <h2>Everything you need in one secure student portal.</h2>
-        <p>Sign in to manage events, complaints, and your campus profile through Supabase-powered authentication.</p>
+        <p>Sign in to manage events, complaints, and your campus profile through one connected student portal.</p>
       </div>
     </section>
 
@@ -46,6 +45,14 @@
               <button class="toggle-password" id="togglePassword" type="button">Show</button>
             </div>
           </div>
+          <div class="auth-field">
+            <label for="confirmPassword">Confirm Password</label>
+            <input id="confirmPassword" type="password" placeholder="Confirm your password" autocomplete="new-password" />
+          </div>
+          <div class="auth-field">
+            <label for="confirmPassword">Confirm Password</label>
+            <input id="confirmPassword" type="password" placeholder="Confirm your password" autocomplete="new-password" />
+          </div>
 
           <p class="auth-message" id="authMessage" aria-live="polite"></p>
 
@@ -64,6 +71,6 @@
     </section>
   </main>
 
-  <script src="auth.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>

@@ -1,86 +1,47 @@
 # CampusConnect
 
-CampusConnect is a student portal built with HTML5, CSS3, Vanilla JavaScript, and Supabase.
+CampusConnect is a student portal demo built with HTML5, CSS3, and Vanilla JavaScript. It uses browser `localStorage` for demonstration-only authentication and data persistence.
 
-## What changed
+## Important security note
 
-- Added `login.html` for Supabase authentication
-- Reworked `index.html` into a guarded dashboard with a horizontal navigation shelf
-- Added `auth.js` for shared Supabase auth helpers
-- Replaced localStorage data flow with Supabase-backed events, registrations, profiles, and complaints
-- Added `login.css` for the dedicated authentication page
-- Added `supabase-schema.sql` for the database setup
+This project stores demo passwords in the browser. It is not production-secure authentication and must not be used for real student accounts or sensitive data.
+
+## Routes
+
+- `/` serves `login.html` through `vercel.json`.
+- `/dashboard` serves the protected dashboard from `index.html`.
 
 ## Files
 
-### Created
+- `login.html` and `login.css`: authentication interface.
+- `index.html` and `style.css`: existing dashboard interface.
+- `script.js`: demo authentication, routing guards, event registration, complaint tracking, and UI behavior.
+- `vercel.json`: Vercel rewrites for the login and dashboard routes.
 
-- `login.html`
-- `login.css`
-- `auth.js`
-- `supabase-schema.sql`
+## Local data architecture
 
-### Modified
+- `campusconnect_users` stores demo user records.
+- `campusconnect_current_user` stores the active user ID.
+- `campusconnect_event_registrations` stores registrations with `userId` and `eventId`.
+- `campusconnect_complaints` stores complaints with `userId`, status, and submission details.
 
-- `index.html`
-- `style.css`
-- `script.js`
-- `README.md`
+All user-specific registrations and complaints are filtered by the active user's ID, so users see only their own records in the browser demo.
 
-## How authentication works
+## Run locally
 
-- `login.html` uses Supabase Auth with email and password.
-- `auth.js` calls `supabase.auth.signUp()` for signup and `supabase.auth.signInWithPassword()` for login.
-- The user's full name is stored in user metadata during signup.
-- After login, the app redirects to `index.html`.
-- If there is no active session, `index.html` redirects users back to `login.html`.
-- Logout uses `supabase.auth.signOut()` and then redirects to `login.html`.
+Serve the folder with any static web server and open `/`. For example, use VS Code Live Server or another local HTTP server. The login page is the application entry point.
 
-## Database relationships
+## Vercel deployment
 
-- `profiles.id` references `auth.users.id`
-- `event_registrations.user_id` references `auth.users.id`
-- `event_registrations.event_id` references `events.id`
-- `complaints.user_id` references `auth.users.id`
+Deploy the repository as a static Vercel project. Keep this `vercel.json` in the project root:
 
-## Row Level Security
+```json
+{
+  "rewrites": [
+    { "source": "/", "destination": "/login.html" },
+    { "source": "/dashboard", "destination": "/index.html" }
+  ]
+}
+```
 
-RLS is enabled on:
-
-- `profiles`
-- `events`
-- `event_registrations`
-- `complaints`
-
-Policies restrict access so users can only read and modify their own profile, registrations, and complaints. Events are readable by authenticated users.
-
-## Supabase configuration
-
-Open `auth.js` and replace these placeholders:
-
-- `YOUR_SUPABASE_URL`
-- `YOUR_SUPABASE_PUBLISHABLE_KEY`
-
-Do not put your service role key in browser code.
-
-## How to run locally
-
-1. Set your real Supabase URL and publishable key in `auth.js`.
-2. Open the project with a local web server.
-3. Start on `login.html`.
-4. Sign up or sign in.
-5. After authentication, the app redirects to `index.html`.
-
-## How to create the database
-
-1. Open your Supabase project.
-2. Go to the SQL Editor.
-3. Paste the contents of `supabase-schema.sql`.
-4. Run the script.
-5. Verify the sample events were inserted.
-
-## Notes
-
-- Complaint status management is intentionally restricted on the student side.
-- The dashboard loads data from Supabase instead of localStorage.
-- If you later add an admin panel, status updates can be handled there securely.
+No external authentication service, backend, database, or environment variables are required.

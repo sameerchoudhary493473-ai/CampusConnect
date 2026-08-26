@@ -4,9 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CampusConnect | Student Dashboard</title>
-  <meta name="description" content="CampusConnect student dashboard powered by Supabase authentication and database records." />
+  <meta name="description" content="CampusConnect student dashboard for campus events, complaints, announcements, and resources." />
   <link rel="stylesheet" href="style.css" />
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body class="dashboard-page">
   <div class="app-shell">
@@ -28,6 +27,7 @@
             <div>
               <p class="profile-pill__label">Profile</p>
               <p class="profile-pill__name" id="profileName">Loading...</p>
+              <p class="profile-pill__email" id="profileEmail"></p>
             </div>
           </div>
           <button class="btn btn--secondary" id="logoutBtn" type="button">Logout</button>
@@ -64,7 +64,7 @@
         <article class="stat-card">
           <p class="stat-card__label">Upcoming Events</p>
           <h3 class="stat-card__value" id="upcomingEventsCount">00</h3>
-          <p class="stat-card__meta">Loaded from Supabase</p>
+          <p class="stat-card__meta">Campus event catalog</p>
         </article>
         <article class="stat-card">
           <p class="stat-card__label">Registered Events</p>
@@ -238,7 +238,6 @@
     </div>
   </div>
 
-  <script src="auth.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
