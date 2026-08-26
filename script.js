@@ -91,7 +91,7 @@ function initAuthPage() {
   const authMessage = document.getElementById("authMessage");
   let mode = "signin";
 
-  if (getCurrentUser()) { window.location.replace("/dashboard"); return; }
+  if (getCurrentUser()) { window.location.replace("/dashboard.html"); return; }
   const setMessage = (message, type = "") => { authMessage.className = `auth-message ${type ? `is-${type}` : ""}`.trim(); authMessage.textContent = message; };
   const syncMode = () => { const signup = mode === "signup"; if (fullNameField) fullNameField.style.display = signup ? "grid" : "none"; if (confirmPasswordField) confirmPasswordField.style.display = signup ? "grid" : "none"; signInBtn.textContent = signup ? "Create Account" : "Sign In"; createAccountBtn.textContent = signup ? "Sign In" : "Create Account"; switchModeBtn.textContent = signup ? "Sign in" : "Create account"; passwordInput.autocomplete = signup ? "new-password" : "current-password"; };
   const switchMode = () => { mode = mode === "signin" ? "signup" : "signin"; setMessage(""); syncMode(); };
@@ -108,7 +108,7 @@ function initAuthPage() {
     else if (mode === "signup" && password.length < 6) error = "Password must be at least 6 characters.";
     else if (mode === "signup" && password !== confirmPasswordInput.value) error = "Passwords do not match.";
     if (error) setMessage(error, "error");
-    else { const result = mode === "signup" ? registerUser(fullName, email, password) : loginUser(email, password); if (result.error) setMessage(result.error, "error"); else { window.location.replace("/dashboard"); return; } }
+    else { const result = mode === "signup" ? registerUser(fullName, email, password) : loginUser(email, password); if (result.error) setMessage(result.error, "error"); else { window.location.replace("/dashboard.html"); return; } }
     signInBtn.disabled = false; createAccountBtn.disabled = false; syncMode();
   });
   syncMode();

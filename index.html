@@ -3,240 +3,68 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CampusConnect | Student Dashboard</title>
-  <meta name="description" content="CampusConnect student dashboard for campus events, complaints, announcements, and resources." />
-  <link rel="stylesheet" href="style.css" />
+  <title>CampusConnect | Sign In</title>
+  <link rel="stylesheet" href="login.css" />
 </head>
-<body class="dashboard-page">
-  <div class="app-shell">
-    <main class="app-main">
-      <div class="page-loading" id="pageLoading">Loading your dashboard...</div>
-
-      <header class="top-shelf">
-        <div class="brand-lockup">
-          <div class="brand__mark" aria-hidden="true">CC</div>
-          <div>
-            <h1 class="brand__name">CampusConnect</h1>
-            <p class="brand__tagline">Student Portal</p>
-          </div>
+<body class="auth-page">
+  <main class="auth-shell">
+    <section class="auth-panel auth-panel--visual">
+      <div class="brand-lockup brand-lockup--auth">
+        <div class="brand__mark" aria-hidden="true">CC</div>
+        <div>
+          <h1 class="brand__name">CampusConnect</h1>
+          <p class="brand__tagline">Student Portal</p>
         </div>
-
-        <div class="profile-actions">
-          <div class="profile-pill">
-            <div class="avatar" id="userAvatar" aria-hidden="true">S</div>
-            <div>
-              <p class="profile-pill__label">Profile</p>
-              <p class="profile-pill__name" id="profileName">Loading...</p>
-              <p class="profile-pill__email" id="profileEmail"></p>
-            </div>
-          </div>
-          <button class="btn btn--secondary" id="logoutBtn" type="button">Logout</button>
-        </div>
-      </header>
-
-      <nav class="nav-shelf" aria-label="Primary">
-        <div class="nav-shelf__links">
-          <a class="nav-link active" href="#dashboard">Dashboard</a>
-          <a class="nav-link" href="#events">Events</a>
-          <a class="nav-link" href="#announcements">Announcements</a>
-          <a class="nav-link" href="#complaints">Complaints</a>
-          <a class="nav-link" href="#resources">Resources</a>
-        </div>
-        <button class="nav-shelf__menu" id="navMenuBtn" type="button" aria-expanded="false" aria-controls="mobileNav">Menu</button>
-      </nav>
-
-      <div class="mobile-nav" id="mobileNav" hidden>
-        <a class="nav-link active" href="#dashboard">Dashboard</a>
-        <a class="nav-link" href="#events">Events</a>
-        <a class="nav-link" href="#announcements">Announcements</a>
-        <a class="nav-link" href="#complaints">Complaints</a>
-        <a class="nav-link" href="#resources">Resources</a>
       </div>
+      <div class="auth-copy">
+        <p class="eyebrow">Connected campus life</p>
+        <h2>Everything you need in one secure student portal.</h2>
+        <p>Sign in to manage events, complaints, and your campus profile through one connected student portal.</p>
+      </div>
+    </section>
 
-      <section class="hero-card" id="dashboard">
-        <p class="eyebrow">Campus Dashboard</p>
-        <h2 id="welcomeMessage">Welcome back!</h2>
-        <p class="hero-card__sub">Your campus at a glance.</p>
-        <p class="hero-card__date" id="currentDate"></p>
-      </section>
+    <section class="auth-panel auth-panel--form">
+      <div class="auth-card">
+        <p class="eyebrow">CampusConnect</p>
+        <h2>Welcome back</h2>
+        <p class="auth-card__sub">Sign in to continue to your campus dashboard.</p>
 
-      <section class="stats-grid" aria-label="Dashboard statistics">
-        <article class="stat-card">
-          <p class="stat-card__label">Upcoming Events</p>
-          <h3 class="stat-card__value" id="upcomingEventsCount">00</h3>
-          <p class="stat-card__meta">Campus event catalog</p>
-        </article>
-        <article class="stat-card">
-          <p class="stat-card__label">Registered Events</p>
-          <h3 class="stat-card__value" id="registeredEventsCount">00</h3>
-          <p class="stat-card__meta">My registrations</p>
-        </article>
-        <article class="stat-card">
-          <p class="stat-card__label">Pending Complaints</p>
-          <h3 class="stat-card__value" id="pendingComplaintsCount">00</h3>
-          <p class="stat-card__meta">Waiting on response</p>
-        </article>
-        <article class="stat-card">
-          <p class="stat-card__label">Total Complaints</p>
-          <h3 class="stat-card__value" id="totalComplaintsCount">00</h3>
-          <p class="stat-card__meta">All time</p>
-        </article>
-      </section>
-
-      <section class="content-grid">
-        <section class="panel panel--wide" id="events" aria-labelledby="events-title">
-          <div class="section-heading">
-            <div>
-              <p class="eyebrow">Student Activities</p>
-              <h2 id="events-title">Upcoming Events</h2>
+        <form id="authForm" class="auth-form">
+          <div class="auth-field">
+            <label for="fullName">Full Name</label>
+            <input id="fullName" type="text" placeholder="Your full name" autocomplete="name" />
+          </div>
+          <div class="auth-field">
+            <label for="email">Email</label>
+            <input id="email" type="email" placeholder="you@example.com" autocomplete="email" />
+          </div>
+          <div class="auth-field">
+            <label for="password">Password</label>
+            <div class="password-wrap">
+              <input id="password" type="password" placeholder="Enter your password" autocomplete="current-password" />
+              <button class="toggle-password" id="togglePassword" type="button">Show</button>
             </div>
           </div>
+          <div class="auth-field">
+            <label for="confirmPassword">Confirm Password</label>
+            <input id="confirmPassword" type="password" placeholder="Confirm your password" autocomplete="new-password" />
+          </div>
+          <p class="auth-message" id="authMessage" aria-live="polite"></p>
 
-          <div class="toolbar">
-            <label class="search-box" for="eventSearch">
-              <span class="search-box__icon" aria-hidden="true">Search</span>
-              <input id="eventSearch" type="search" placeholder="Search by title or category" autocomplete="off" />
-            </label>
-            <div class="filter-pills" role="tablist" aria-label="Event filters">
-              <button class="filter-pill is-active" type="button" data-filter="all">All</button>
-              <button class="filter-pill" type="button" data-filter="technical">Technical</button>
-              <button class="filter-pill" type="button" data-filter="sports">Sports</button>
-              <button class="filter-pill" type="button" data-filter="cultural">Cultural</button>
-              <button class="filter-pill" type="button" data-filter="workshop">Workshop</button>
-            </div>
+          <div class="auth-actions">
+            <button class="btn btn--primary" id="signInBtn" type="submit">Sign In</button>
+            <button class="btn btn--secondary" id="createAccountBtn" type="button">Create Account</button>
           </div>
 
-          <div class="event-grid" id="eventGrid" aria-live="polite"></div>
-        </section>
-
-        <section class="panel" id="announcements" aria-labelledby="announcements-title">
-          <div class="section-heading">
-            <div>
-              <p class="eyebrow">Latest Updates</p>
-              <h2 id="announcements-title">Latest Announcements</h2>
-            </div>
-          </div>
-          <div class="announcement-list">
-            <article class="announcement-item">
-              <p class="announcement-item__title">Library extended hours this week</p>
-              <p class="announcement-item__text">The central library will remain open until 10 PM for exam preparation.</p>
-            </article>
-            <article class="announcement-item">
-              <p class="announcement-item__title">Scholarship portal now open</p>
-              <p class="announcement-item__text">Eligible students can submit applications before September 5, 2026.</p>
-            </article>
-            <article class="announcement-item">
-              <p class="announcement-item__title">Campus Wi-Fi maintenance notice</p>
-              <p class="announcement-item__text">Network upgrades will take place on Saturday between 2 AM and 5 AM.</p>
-            </article>
-          </div>
-        </section>
-
-        <section class="panel" id="my-events" aria-labelledby="registered-events-title">
-          <div class="section-heading">
-            <div>
-              <p class="eyebrow">Your Activity</p>
-              <h2 id="registered-events-title">My Registered Events</h2>
-            </div>
-          </div>
-          <div class="registered-list" id="registeredEventsList" aria-live="polite"></div>
-        </section>
-
-        <section class="panel" id="complaints" aria-labelledby="complaints-title">
-          <div class="section-heading">
-            <div>
-              <p class="eyebrow">Student Support</p>
-              <h2 id="complaints-title">Complaints</h2>
-            </div>
-          </div>
-
-          <form class="complaint-form" id="complaintForm">
-            <div class="complaint-form__grid">
-              <div class="form-field">
-                <label for="complaintTitle">Complaint Title</label>
-                <input id="complaintTitle" name="title" type="text" placeholder="e.g. Broken classroom projector" />
-                <small class="form-error" id="titleError"></small>
-              </div>
-              <div class="form-field">
-                <label for="complaintCategory">Category</label>
-                <select id="complaintCategory" name="category">
-                  <option value="">Select category</option>
-                  <option value="Academic">Academic</option>
-                  <option value="Hostel">Hostel</option>
-                  <option value="Library">Library</option>
-                  <option value="Transport">Transport</option>
-                  <option value="Cafeteria">Cafeteria</option>
-                  <option value="Technical">Technical</option>
-                  <option value="Other">Other</option>
-                </select>
-                <small class="form-error" id="categoryError"></small>
-              </div>
-              <div class="form-field form-field--full">
-                <label for="complaintDescription">Description</label>
-                <textarea id="complaintDescription" name="description" rows="4" placeholder="Describe the issue clearly"></textarea>
-                <small class="form-error" id="descriptionError"></small>
-              </div>
-              <div class="form-field">
-                <label for="complaintPriority">Priority</label>
-                <select id="complaintPriority" name="priority">
-                  <option value="Low">Low</option>
-                  <option value="Medium" selected>Medium</option>
-                  <option value="High">High</option>
-                </select>
-              </div>
-              <div class="form-field">
-                <label for="complaintLocation">Location</label>
-                <input id="complaintLocation" name="location" type="text" placeholder="e.g. Hostel Block A" />
-                <small class="form-error" id="locationError"></small>
-              </div>
-            </div>
-            <div class="form-actions">
-              <button class="btn btn--primary" type="submit">Submit Complaint</button>
-            </div>
-          </form>
-
-          <div class="toolbar">
-            <label class="search-box" for="complaintSearch">
-              <span class="search-box__icon" aria-hidden="true">Search</span>
-              <input id="complaintSearch" type="search" placeholder="Search by title, ID, or category" autocomplete="off" />
-            </label>
-            <div class="filter-pills" role="tablist" aria-label="Complaint filters">
-              <button class="filter-pill is-active" type="button" data-complaint-filter="all">All</button>
-              <button class="filter-pill" type="button" data-complaint-filter="Pending">Pending</button>
-              <button class="filter-pill" type="button" data-complaint-filter="In Progress">In Progress</button>
-              <button class="filter-pill" type="button" data-complaint-filter="Resolved">Resolved</button>
-            </div>
-          </div>
-
-          <div class="complaints-list" id="complaintsList" aria-live="polite"></div>
-        </section>
-
-        <section class="panel" id="resources" aria-labelledby="resources-title">
-          <div class="section-heading">
-            <div>
-              <p class="eyebrow">Student Tools</p>
-              <h2 id="resources-title">Resources</h2>
-            </div>
-          </div>
-          <div class="resource-card">
-            <h3>Student Resources</h3>
-            <p>Access academic guides, department contacts, hostel information, and downloadable forms from one place.</p>
-          </div>
-        </section>
-      </section>
-    </main>
-  </div>
-
-  <section class="feedback-bar" id="feedbackBar" aria-live="polite" aria-atomic="true"></section>
-
-  <div class="modal" id="complaintModal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="complaintModalTitle">
-    <div class="modal__backdrop" data-modal-close></div>
-    <div class="modal__panel" role="document">
-      <button class="modal__close" type="button" data-modal-close aria-label="Close complaint details">×</button>
-      <h2 id="complaintModalTitle">Complaint Details</h2>
-      <div class="modal__content" id="complaintModalContent"></div>
-    </div>
-  </div>
+          <div class="auth-divider">or</div>
+          <p class="auth-switch">
+            Already have an account?
+            <button class="link-button" id="switchModeBtn" type="button">Sign in</button>
+          </p>
+        </form>
+      </div>
+    </section>
+  </main>
 
   <script src="script.js"></script>
 </body>
