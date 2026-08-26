@@ -131,7 +131,7 @@ document.addEventListener("DOMContentLoaded", () => {
       setLoading(true, "Loading profile...");
       await loadProfile();
       setLoading(true, "Loading events...");
-      await Promise.all([loadEvents(), loadRegisteredEvents(), loadComplaints()]);
+      await Promise.all([loadEvents(), loadUserRegistrations(), loadComplaints()]);
       updateDashboardStats();
       renderEvents();
       renderComplaints();
@@ -187,7 +187,7 @@ document.addEventListener("DOMContentLoaded", () => {
     state.events = data || [];
   }
 
-  async function loadRegisteredEvents() {
+  async function loadUserRegistrations() {
     const { data, error } = await auth.client
       .from("event_registrations")
       .select("id, user_id, event_id, registered_at, events(id, title, category, description, event_date, event_time, location, total_seats)")
@@ -299,7 +299,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (error) throw error;
 
       showToast("Registered successfully.", "success");
-      await loadRegisteredEvents();
+      await loadUserRegistrations();
       updateDashboardStats();
       renderEvents();
     } catch (error) {
@@ -320,7 +320,7 @@ document.addEventListener("DOMContentLoaded", () => {
         .eq("event_id", eventId);
       if (error) throw error;
       showToast("Registration removed.", "success");
-      await loadRegisteredEvents();
+      await loadUserRegistrations();
       updateDashboardStats();
       renderEvents();
     } catch (error) {
@@ -618,5 +618,18 @@ document.addEventListener("DOMContentLoaded", () => {
     note.textContent = message;
     refs.feedbackBar.appendChild(note);
     window.setTimeout(() => note.remove(), 3000);
+  }
+
+  // Expose the required reusable function names for maintenance and debugging.
+  window.loadUserRegistrations = loadUserRegistrations;
+  window.logout = logout;
+
+  async function logout() {
+    try {
+      await auth.logout();
+    } catch (error) {
+      console.error("Logout failed:", error);
+      window.location.href = "login.html";
+    }
   }
 });

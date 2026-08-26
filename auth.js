@@ -186,7 +186,7 @@
     userFriendlyAuthError,
   };
 
-  const isLoginPage = window.location.pathname.endsWith("login.html") || window.location.pathname.endsWith("/");
+  const isLoginPage = document.body.classList.contains("auth-page") || window.location.pathname.endsWith("login.html");
   if (isLoginPage) {
     initAuth();
     checkSession().then((session) => {
