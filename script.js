@@ -41,6 +41,11 @@ const state = {
   adminEventSearchTerm: "",
   adminComplaintSearchTerm: "",
   adminStudentSearchTerm: "",
+  activeCheckInEventId: null,
+  attendeeSearchTerm: "",
+  attendeeFilter: "all",
+  scannerStream: null,
+  scannerTimer: null,
 };
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -72,8 +77,27 @@ function ensureDemoData() {
   saveUsers(users);
 
   if (!localStorage.getItem(STORAGE_KEYS.events)) saveEvents(DEFAULT_EVENTS);
-  if (!localStorage.getItem(STORAGE_KEYS.registrations)) saveRegistrations([]);
+  migrateRegistrations();
   if (!localStorage.getItem(STORAGE_KEYS.complaints)) saveComplaints([]);
+}
+
+function generateTicketCode(eventId = "event") {
+  const prefix = String(eventId).replace(/[^a-z0-9]/gi, "").slice(0, 6).toUpperCase().padEnd(4, "X");
+  const randomPart = (window.crypto?.getRandomValues ? Array.from(window.crypto.getRandomValues(new Uint32Array(2))).map((value) => value.toString(36)).join("") : `${Date.now()}${Math.random()}`).replace(/[^a-z0-9]/gi, "").toUpperCase().slice(-8);
+  return `CC-${prefix}-${randomPart}`;
+}
+
+function migrateRegistrations() {
+  const registrations = getRegistrations();
+  const migrated = registrations.map((registration) => ({
+    ...registration,
+    id: registration.id || createId("registration"),
+    checkedIn: registration.checkedIn === true,
+    checkedInAt: registration.checkedInAt || null,
+    ticketCode: registration.ticketCode || generateTicketCode(registration.eventId),
+  }));
+  if (JSON.stringify(registrations) !== JSON.stringify(migrated)) saveRegistrations(migrated);
+  return migrated;
 }
 
 function normalizeUser(user) {
@@ -222,7 +246,7 @@ function initAuthPage() {
 
 function loadEvents() { state.events = getEvents(); }
 function loadUserRegistrations() {
-  state.registrations = getRegistrations();
+  state.registrations = migrateRegistrations();
 }
 function loadComplaints() {
   state.complaints = getComplaints();
@@ -334,8 +358,42 @@ function bindDashboardUi() {
     }));
     refs.complaintForm?.addEventListener("submit", submitComplaint);
     refs.complaintModal?.addEventListener("click", (event) => { if (event.target.matches("[data-modal-close]")) closeComplaintModal(); });
+    document.querySelectorAll("[data-ticket-close]").forEach((node) => node.addEventListener("click", closeTicketModal));
     document.addEventListener("keydown", (event) => { if (event.key === "Escape" && refs.complaintModal?.classList.contains("is-open")) closeComplaintModal(); });
   }
+}
+
+function showEventTicket(registrationId) {
+  const registration = migrateRegistrations().find((item) => item.id === registrationId && item.userId === state.user?.id);
+  const event = registration && getEvents().find((item) => item.id === registration.eventId);
+  const modal = document.getElementById("ticketModal");
+  const content = document.getElementById("ticketContent");
+  if (!registration || !event || !modal || !content) return;
+  content.innerHTML = `<div class="ticket"><p class="eyebrow">CampusConnect</p><h2 id="ticketModalTitle">Event Ticket</h2><p class="ticket__event">${escapeHtml(event.title)}</p><div class="ticket__qr" id="ticketQr" aria-label="QR code for ${escapeHtml(event.title)}"><span>Preparing QR code...</span></div><div class="ticket__details"><p><strong>Student:</strong> ${escapeHtml(getDisplayName(state.user.fullName, state.user.email))}</p><p><strong>Date:</strong> ${formatDate(event.eventDate)}</p><p><strong>Time:</strong> ${escapeHtml(event.eventTime)}</p><p><strong>Location:</strong> ${escapeHtml(event.location)}</p><p><strong>Ticket ID:</strong> ${escapeHtml(registration.ticketCode)}</p><p><strong>Status:</strong> ${registration.checkedIn ? "Checked In" : "Registered"}</p></div></div>`;
+  modal.classList.add("is-open");
+  modal.setAttribute("aria-hidden", "false");
+  generateQRCode(registration, document.getElementById("ticketQr"));
+}
+
+function closeTicketModal() {
+  const modal = document.getElementById("ticketModal");
+  modal?.classList.remove("is-open");
+  modal?.setAttribute("aria-hidden", "true");
+}
+
+function generateQRCode(registration, target) {
+  if (!target) return;
+  const payload = JSON.stringify({ ticketCode: registration.ticketCode, eventId: registration.eventId });
+  target.textContent = "";
+  if (window.QRCode) {
+    new window.QRCode(target, { text: payload, width: 220, height: 220, correctLevel: window.QRCode.CorrectLevel?.M });
+    return;
+  }
+  const script = document.createElement("script");
+  script.src = "https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js";
+  script.onload = () => generateQRCode(registration, target);
+  script.onerror = () => { target.innerHTML = `<div class="ticket__qr-fallback">QR library unavailable.<br /><strong>${escapeHtml(registration.ticketCode)}</strong></div>`; };
+  document.head.appendChild(script);
 }
 
 function registerEvent(eventId) {
@@ -351,13 +409,13 @@ function registerEvent(eventId) {
     return;
   }
   const registrations = getRegistrations();
-  registrations.push({ id: createId("registration"), userId: state.user.id, eventId, registeredAt: new Date().toISOString() });
+  registrations.push({ id: createId("registration"), userId: state.user.id, eventId, registeredAt: new Date().toISOString(), checkedIn: false, checkedInAt: null, ticketCode: generateTicketCode(eventId) });
   saveRegistrations(registrations);
   loadUserRegistrations();
   updateDashboardStats();
   renderEvents();
   renderAdminDashboard();
-  showToast("Registered successfully.", "success");
+  showToast("Registration confirmed. Your ticket is ready.", "success");
 }
 
 function unregisterEvent(eventId) {
@@ -390,11 +448,12 @@ function renderEvents() {
 
   refs.registeredEventsList.innerHTML = state.registrations.filter((item) => item.userId === state.user.id).length ? state.registrations.filter((item) => item.userId === state.user.id).map((registration) => {
     const event = state.events.find((item) => item.id === registration.eventId);
-    return event ? `<article class="registered-item"><div class="registered-item__top"><div><span class="event-card__badge ${badgeClassForEvent(event.category)}">${escapeHtml(event.category)}</span><h3 class="registered-item__title">${escapeHtml(event.title)}</h3><p class="registered-item__meta">${formatDate(event.eventDate)} | ${escapeHtml(event.eventTime)}</p><p class="registered-item__meta">${escapeHtml(event.location)}</p></div><span class="event-card__status event-card__status--open">Registered</span></div><div class="registered-item__actions"><button class="btn btn--ghost" type="button" data-unregister-event="${event.id}">Unregister</button></div></article>` : "";
+    return event ? `<article class="registered-item"><div class="registered-item__top"><div><span class="event-card__badge ${badgeClassForEvent(event.category)}">${escapeHtml(event.category)}</span><h3 class="registered-item__title">${escapeHtml(event.title)}</h3><p class="registered-item__meta">${formatDate(event.eventDate)} | ${escapeHtml(event.eventTime)}</p><p class="registered-item__meta">${escapeHtml(event.location)}</p></div><span class="event-card__status ${registration.checkedIn ? "event-card__status--checked-in" : "event-card__status--open"}">${registration.checkedIn ? "Checked In" : "Registered"}</span></div><div class="registered-item__actions"><button class="btn btn--primary" type="button" data-view-ticket="${registration.id}">View Ticket</button><button class="btn btn--ghost" type="button" data-unregister-event="${event.id}">Unregister</button></div></article>` : "";
   }).join("") : `<div class="empty-state">No registered events yet.</div>`;
 
   refs.eventGrid.querySelectorAll("[data-register-event]").forEach((button) => button.addEventListener("click", () => registerEvent(button.dataset.registerEvent)));
   refs.registeredEventsList.querySelectorAll("[data-unregister-event]").forEach((button) => button.addEventListener("click", () => unregisterEvent(button.dataset.unregisterEvent)));
+  refs.registeredEventsList.querySelectorAll("[data-view-ticket]").forEach((button) => button.addEventListener("click", () => showEventTicket(button.dataset.viewTicket)));
 }
 
 function submitComplaint(event) {
@@ -527,7 +586,8 @@ function renderAdminDashboard() {
   });
   const visibleStudents = students.filter((student) => `${student.fullName} ${student.email}`.toLowerCase().includes(studentQuery));
 
-  const totalRegistrations = complaints ? getRegistrations().length : 0;
+  const registrations = migrateRegistrations();
+  const totalRegistrations = registrations.length;
   const totalStudents = students.length;
   const totalEvents = events.length;
   const pendingComplaints = complaints.filter((item) => item.status === "Pending").length;
@@ -587,7 +647,7 @@ function renderAdminDashboard() {
             <button class="btn btn--primary" id="createEventBtn" type="button">+ Create Event</button>
           </div>
           <label class="search-box" for="adminEventSearch"><span class="search-box__icon" aria-hidden="true">Search</span><input id="adminEventSearch" type="search" placeholder="Search by title or category" autocomplete="off" value="${escapeHtml(state.adminEventSearchTerm)}" /></label>
-          <div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Event Name</th><th>Category</th><th>Date</th><th>Location</th><th>Capacity</th><th>Registered</th><th>Available Seats</th><th>Actions</th></tr></thead><tbody>${visibleEvents.map((event) => { const registered = getRegistrations().filter((item) => item.eventId === event.id).length; const available = getSeatsLeft(event.id, event.totalSeats); return `<tr><td>${escapeHtml(event.title)}</td><td>${escapeHtml(event.category)}</td><td>${formatDate(event.eventDate)}</td><td>${escapeHtml(event.location)}</td><td>${event.totalSeats}</td><td>${registered}</td><td>${available}</td><td><div class="table-actions"><button class="btn btn--secondary" type="button" data-edit-event="${event.id}">Edit</button><button class="btn btn--ghost" type="button" data-delete-event="${event.id}">Delete</button></div></td></tr>`; }).join("")}</tbody></table></div>
+           <div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Event Name</th><th>Category</th><th>Date</th><th>Location</th><th>Capacity</th><th>Registered</th><th>Checked In</th><th>Remaining</th><th>Actions</th></tr></thead><tbody>${visibleEvents.map((event) => { const eventRegistrations = registrations.filter((item) => item.eventId === event.id); const registered = eventRegistrations.length; const checkedIn = eventRegistrations.filter((item) => item.checkedIn).length; const available = getSeatsLeft(event.id, event.totalSeats); return `<tr><td>${escapeHtml(event.title)}</td><td>${escapeHtml(event.category)}</td><td>${formatDate(event.eventDate)}</td><td>${escapeHtml(event.location)}</td><td>${event.totalSeats}</td><td>${registered}</td><td>${checkedIn}</td><td>${Math.max(0, registered - checkedIn)}</td><td><div class="table-actions"><button class="btn btn--secondary" type="button" data-edit-event="${event.id}">Edit</button><button class="btn btn--ghost" type="button" data-delete-event="${event.id}">Delete</button><button class="btn btn--primary" type="button" data-checkin-event="${event.id}">Check-In</button></div></td></tr>`; }).join("")}</tbody></table></div>
         </article>
         <article class="panel admin-panel" id="adminComplaints">
           <div class="section-heading">
@@ -633,6 +693,13 @@ function renderAdminDashboard() {
         <div id="adminComplaintModalContent" class="modal__content"></div>
       </div>
     </div>
+    <div class="modal" id="checkInModal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="checkInModalTitle">
+      <div class="modal__backdrop" data-checkin-close></div>
+      <div class="modal__panel checkin-modal" role="document">
+        <button class="modal__close" type="button" data-checkin-close aria-label="Close check-in">×</button>
+        <div data-checkin-content></div>
+      </div>
+    </div>
   `;
 
   const adminLogoutBtn = document.getElementById("adminLogoutBtn");
@@ -646,12 +713,14 @@ function renderAdminDashboard() {
   document.getElementById("adminStudentSearch")?.addEventListener("input", (event) => { state.adminStudentSearchTerm = event.target.value; renderAdminDashboard(); });
   document.querySelectorAll("[data-edit-event]").forEach((button) => button.addEventListener("click", () => openEventModal(button.dataset.editEvent)));
   document.querySelectorAll("[data-delete-event]").forEach((button) => button.addEventListener("click", () => deleteEvent(button.dataset.deleteEvent)));
+  document.querySelectorAll("[data-checkin-event]").forEach((button) => button.addEventListener("click", () => openCheckIn(button.dataset.checkinEvent)));
   document.querySelectorAll("[data-view-admin-complaint]").forEach((button) => button.addEventListener("click", () => openAdminComplaintModal(button.dataset.viewAdminComplaint)));
   document.querySelectorAll("[data-status-progress]").forEach((button) => button.addEventListener("click", () => updateComplaintStatus(button.dataset.statusProgress, "In Progress")));
   document.querySelectorAll("[data-status-resolved]").forEach((button) => button.addEventListener("click", () => updateComplaintStatus(button.dataset.statusResolved, "Resolved")));
   document.getElementById("eventForm")?.addEventListener("submit", submitEventForm);
   document.querySelectorAll("[data-event-modal-close]").forEach((node) => node.addEventListener("click", closeEventModal));
   document.querySelectorAll("[data-admin-complaint-close]").forEach((node) => node.addEventListener("click", closeAdminComplaintModal));
+  document.querySelectorAll("[data-checkin-close]").forEach((node) => node.addEventListener("click", closeCheckIn));
 }
 
 function toggleAdminMobileNav() {
@@ -760,6 +829,101 @@ function closeAdminComplaintModal() {
   modal?.setAttribute("aria-hidden", "true");
 }
 
+function getEventAttendance(eventId) {
+  const registrations = migrateRegistrations().filter((item) => item.eventId === eventId);
+  const checkedIn = registrations.filter((item) => item.checkedIn).length;
+  return { registered: registrations.length, checkedIn, remaining: registrations.length - checkedIn, percentage: registrations.length ? Math.round((checkedIn / registrations.length) * 100) : 0 };
+}
+
+function openCheckIn(eventId) {
+  const event = getEvents().find((item) => item.id === eventId);
+  const modal = document.getElementById("checkInModal");
+  if (!event || !modal) return;
+  state.activeCheckInEventId = eventId;
+  state.attendeeSearchTerm = "";
+  state.attendeeFilter = "all";
+  renderCheckIn(event);
+  modal.classList.add("is-open");
+  modal.setAttribute("aria-hidden", "false");
+}
+
+function renderCheckIn(event) {
+  const modal = document.getElementById("checkInModal");
+  if (!modal) return;
+  const attendance = getEventAttendance(event.id);
+  const users = getUsers().map(normalizeUser);
+  const query = state.attendeeSearchTerm.toLowerCase();
+  const attendees = migrateRegistrations().filter((item) => item.eventId === event.id).filter((item) => {
+    const student = users.find((user) => user.id === item.userId);
+    const blob = `${student?.fullName || ""} ${student?.email || ""} ${item.ticketCode}`.toLowerCase();
+    return (state.attendeeFilter === "all" || (state.attendeeFilter === "checked" ? item.checkedIn : !item.checkedIn)) && (!query || blob.includes(query));
+  });
+  modal.querySelector("[data-checkin-content]").innerHTML = `<div class="checkin-header"><p class="eyebrow">Event Check-In</p><h2>${escapeHtml(event.title)}</h2><div class="checkin-stats"><span>Registered: <strong>${attendance.registered}</strong></span><span>Checked In: <strong>${attendance.checkedIn}</strong></span><span>Remaining: <strong>${attendance.remaining}</strong></span><span>Attendance: <strong>${attendance.percentage}%</strong></span></div></div><div class="scanner-panel"><div class="scanner-preview"><video id="scannerVideo" playsinline muted></video><div class="scanner-placeholder" id="scannerPlaceholder">Point the camera at the student's QR code.</div></div><div class="scanner-actions"><button class="btn btn--primary" type="button" id="startScannerBtn">Start Camera Scanner</button><button class="btn btn--secondary" type="button" id="stopScannerBtn">Stop Scanner</button></div><form class="ticket-code-form" id="ticketCodeForm"><label for="ticketCodeInput">Enter Ticket Code</label><div><input id="ticketCodeInput" type="text" placeholder="CC-HACK-XXXXXX" autocomplete="off" required /><button class="btn btn--ghost" type="submit">Verify Code</button></div></form><p class="scanner-help">Camera scanning is optional. Manual ticket-code verification works without a camera.</p><div id="checkInResult" class="checkin-result" aria-live="polite"></div></div><section class="attendee-section"><div class="section-heading"><div><p class="eyebrow">Attendance List</p><h3>Attendees</h3></div><label class="search-box" for="attendeeSearch"><span class="search-box__icon" aria-hidden="true">Search</span><input id="attendeeSearch" type="search" placeholder="Search attendees..." value="${escapeHtml(state.attendeeSearchTerm)}" /></label></div><div class="filter-pills attendee-filters"><button class="filter-pill ${state.attendeeFilter === "all" ? "is-active" : ""}" type="button" data-attendee-filter="all">All</button><button class="filter-pill ${state.attendeeFilter === "checked" ? "is-active" : ""}" type="button" data-attendee-filter="checked">Checked In</button><button class="filter-pill ${state.attendeeFilter === "unchecked" ? "is-active" : ""}" type="button" data-attendee-filter="unchecked">Not Checked In</button></div><div class="admin-table-wrap"><table class="admin-table attendee-table"><thead><tr><th>Student Name</th><th>Email</th><th>Ticket ID</th><th>Registration Time</th><th>Check-In Time</th><th>Status</th></tr></thead><tbody>${attendees.map((registration) => { const student = users.find((user) => user.id === registration.userId); return `<tr><td>${escapeHtml(student?.fullName || "Unknown")}</td><td>${escapeHtml(student?.email || "Unknown")}</td><td>${escapeHtml(registration.ticketCode)}</td><td>${formatDateTime(registration.registeredAt)}</td><td>${registration.checkedInAt ? formatDateTime(registration.checkedInAt) : "-"}</td><td><span class="status-badge ${registration.checkedIn ? "status-badge--checked" : "status-badge--pending"}">${registration.checkedIn ? "Checked In" : "Not Checked In"}</span></td></tr>`; }).join("") || `<tr><td colspan="6">No attendees found.</td></tr>`}</tbody></table></div></section>`;
+  bindCheckInUi(event);
+}
+
+function bindCheckInUi(event) {
+  document.getElementById("startScannerBtn")?.addEventListener("click", () => startQRScanner(event.id));
+  document.getElementById("stopScannerBtn")?.addEventListener("click", stopQRScanner);
+  document.getElementById("ticketCodeForm")?.addEventListener("submit", (formEvent) => { formEvent.preventDefault(); verifyTicket({ ticketCode: document.getElementById("ticketCodeInput").value.trim(), eventId: event.id }); });
+  document.getElementById("attendeeSearch")?.addEventListener("input", (inputEvent) => { state.attendeeSearchTerm = inputEvent.target.value; renderCheckIn(event); });
+  document.querySelectorAll("[data-attendee-filter]").forEach((button) => button.addEventListener("click", () => { state.attendeeFilter = button.dataset.attendeeFilter; renderCheckIn(event); }));
+}
+
+function closeCheckIn() {
+  stopQRScanner();
+  const modal = document.getElementById("checkInModal");
+  modal?.classList.remove("is-open");
+  modal?.setAttribute("aria-hidden", "true");
+  state.activeCheckInEventId = null;
+}
+
+async function startQRScanner(eventId) {
+  const video = document.getElementById("scannerVideo");
+  const placeholder = document.getElementById("scannerPlaceholder");
+  if (!video || !navigator.mediaDevices?.getUserMedia || !window.BarcodeDetector) { if (placeholder) placeholder.textContent = "Camera scanning is unavailable. Use Enter Ticket Code below."; return; }
+  try {
+    state.scannerStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
+    video.srcObject = state.scannerStream;
+    await video.play();
+    if (placeholder) placeholder.hidden = true;
+    const detector = new window.BarcodeDetector({ formats: ["qr_code"] });
+    const scan = async () => { if (!state.scannerStream) return; try { const codes = await detector.detect(video); if (codes[0]?.rawValue) { verifyTicket(codes[0].rawValue); stopQRScanner(); return; } } catch (error) { console.warn("QR scan failed:", error); } state.scannerTimer = requestAnimationFrame(scan); };
+    state.scannerTimer = requestAnimationFrame(scan);
+  } catch (error) { stopQRScanner(); if (placeholder) { placeholder.hidden = false; placeholder.textContent = "Camera scanning is unavailable. Use Enter Ticket Code below."; } }
+}
+
+function stopQRScanner() {
+  if (state.scannerTimer) cancelAnimationFrame(state.scannerTimer);
+  state.scannerTimer = null;
+  state.scannerStream?.getTracks().forEach((track) => track.stop());
+  state.scannerStream = null;
+  const video = document.getElementById("scannerVideo");
+  if (video) video.srcObject = null;
+}
+
+function verifyTicket(rawPayload) {
+  // QR attendance verification is client-side and intended for portfolio demonstration only. Production attendance systems require server-side validation.
+  let payload;
+  try { payload = typeof rawPayload === "string" ? JSON.parse(rawPayload) : rawPayload; } catch (error) { payload = { ticketCode: String(rawPayload || "") }; }
+  const result = document.getElementById("checkInResult");
+  const registration = migrateRegistrations().find((item) => item.ticketCode.toLowerCase() === String(payload.ticketCode || "").toLowerCase());
+  const event = getEvents().find((item) => item.id === state.activeCheckInEventId);
+  const student = registration && getUsers().map(normalizeUser).find((user) => user.id === registration.userId);
+  if (!result || !event) return;
+  if (!registration || !student) { result.className = "checkin-result is-error"; result.textContent = "Invalid Ticket: Registration could not be verified."; return; }
+  if (registration.eventId !== event.id || (payload.eventId && payload.eventId !== event.id)) { result.className = "checkin-result is-error"; result.textContent = "Invalid Event Ticket: This ticket belongs to another event."; return; }
+  if (registration.checkedIn) { result.className = "checkin-result is-warning"; result.innerHTML = `<strong>Already Checked In</strong><br />${escapeHtml(student.fullName)}<br />Checked in at: ${formatDateTime(registration.checkedInAt)}`; return; }
+  const checkedInAt = new Date().toISOString();
+  saveRegistrations(migrateRegistrations().map((item) => item.id === registration.id ? { ...item, checkedIn: true, checkedInAt } : item));
+  renderCheckIn(event);
+  const refreshedResult = document.getElementById("checkInResult");
+  if (refreshedResult) {
+    refreshedResult.className = "checkin-result is-success";
+    refreshedResult.innerHTML = `<strong>Check-In Successful</strong><br />Student: ${escapeHtml(student.fullName)}<br />Event: ${escapeHtml(event.title)}<br />Time: ${formatDateTime(checkedInAt)}<br />Status: Checked In`;
+  }
+}
+
 function updateComplaintStatus(complaintId, status) {
   const complaints = getComplaints().map((item) => item.id === complaintId ? { ...item, status } : item);
   saveComplaints(complaints);
@@ -782,4 +946,14 @@ window.CampusConnect = {
   deleteComplaint,
   updateDashboardStats,
   renderAdminDashboard,
+  generateTicketCode,
+  migrateRegistrations,
+  showEventTicket,
+  generateQRCode,
+  openCheckIn,
+  closeCheckIn,
+  startQRScanner,
+  stopQRScanner,
+  verifyTicket,
+  getEventAttendance,
 };

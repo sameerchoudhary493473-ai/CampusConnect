@@ -10,11 +10,13 @@
 
     window.addEventListener("hashchange", () => {
       document.getElementById("adminMobileNav")?.setAttribute("hidden", "true");
+      window.CampusConnect?.stopQRScanner?.();
     });
 
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape") {
         document.getElementById("adminMobileNav")?.setAttribute("hidden", "true");
+        if (document.getElementById("checkInModal")?.classList.contains("is-open")) window.CampusConnect?.closeCheckIn?.();
       }
     });
 

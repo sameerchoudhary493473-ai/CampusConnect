@@ -519,6 +519,21 @@ button, input, select, textarea { font: inherit; }
 }
 .modal__row strong { display: inline-block; min-width: 120px; }
 
+.ticket {
+  display: grid;
+  justify-items: center;
+  gap: 0.7rem;
+  text-align: center;
+}
+.ticket h2 { margin: 0; text-transform: uppercase; letter-spacing: 0.08em; }
+.ticket__event { margin: 0; font-size: 1.25rem; font-weight: 800; color: var(--primary); }
+.ticket__qr { display: grid; place-items: center; min-width: 240px; min-height: 240px; margin: 0.75rem 0; padding: 0.6rem; border: 1px dashed var(--border); border-radius: 18px; background: #fff; }
+.ticket__qr img { display: block; max-width: 100%; }
+.ticket__qr-fallback { padding: 1rem; color: var(--danger); line-height: 1.6; }
+.ticket__details { width: min(100%, 480px); padding-top: 0.8rem; border-top: 1px dashed var(--border); text-align: left; }
+.ticket__details p { margin: 0.55rem 0; }
+.event-card__status--checked-in { color: var(--success); background: rgba(31, 139, 91, 0.12); }
+
 @keyframes toast-in {
   to { opacity: 1; transform: translateY(0); }
 }
