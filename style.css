@@ -322,7 +322,7 @@ button, input, select, textarea { font: inherit; }
 }
 .certificate-row {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-4);
 }
 .certificate-card {
@@ -335,9 +335,9 @@ button, input, select, textarea { font: inherit; }
 .certificate-card img {
   display: block;
   width: 100%;
-  aspect-ratio: 16 / 10;
-  object-fit: cover;
-  background: #eef3ff;
+  aspect-ratio: 1.42 / 1;
+  object-fit: contain;
+  background: #ffffff;
 }
 .certificate-card__body {
   padding: 1rem 1.1rem 1.15rem;
@@ -633,7 +633,7 @@ button, input, select, textarea { font: inherit; }
 @media (max-width: 1200px) {
   .profile-grid { grid-template-columns: 1fr; }
   .stack-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .certificate-row { grid-template-columns: 1fr; }
+  .certificate-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .content-grid { grid-template-columns: 1fr; }
   .panel--wide { grid-row: auto; }
@@ -654,6 +654,7 @@ button, input, select, textarea { font: inherit; }
     width: 100%;
     justify-content: space-between;
   }
+  .certificate-row { grid-template-columns: 1fr; }
   .nav-shelf__links {
     display: none;
   }
